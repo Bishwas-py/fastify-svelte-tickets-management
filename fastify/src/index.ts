@@ -8,9 +8,8 @@ import {getTickets} from "./helpers/get-tickets";
 import {SessionHeadParams, SessionHeadSchema, SignUpParams, SignUpSchema} from "./models/signup";
 import {Message, MessageSchema, Session, SessionSchema} from "./models/resp";
 import type {Db, MongoClient} from 'mongodb'
-import {getAuthorizeUser, createUser, hasUserDb, createSession, getUser} from "./helpers/auth";
-import {User, UserSchema} from "./models/user";
-import * as repl from "node:repl";
+import {u_create, u_exits, create_session, get_user, authorized_user} from "./helpers/auth";
+import {PubUser, User, UserPubSchema, UserSchema} from "./models/user";
 
 const server = fastify();
 
@@ -52,8 +51,8 @@ server.post<{
   async function (request, reply) {
     const {username, password} = request.body;
     let user_id: string;
-    if (await hasUserDb(this.mongo.db, username)) {
-      const user = await getAuthorizeUser(this.mongo.db, username, password);
+    if (await u_exits(this.mongo.db, username)) {
+      const user = await authorized_user(this.mongo.db, username, password);
       if (!user) {
         reply.code(400).send({
           message: "Do not match!",
@@ -63,37 +62,17 @@ server.post<{
       }
       user_id = user._id.toString();
     } else {
-      user_id = (await createUser(this.mongo.db, username, password)).insertedId.toString();
+      user_id = (await u_create(this.mongo.db, username, password))._id;
     }
-    const session = await createSession(this.mongo.db, user_id);
+    const session = await create_session(this.mongo.db, user_id);
     reply.code(201).send(session);
   }
 )
 
 server.get<{
-  Querystring: TicketQuerystring,
-  Reply: PaginatedTicket
-}>(
-  '/list',
-  {
-    schema: {
-      querystring: TicketQuerystringSchema,
-      response: {
-        200: PaginatedTicketSchema
-      }
-    }
-  },
-  function (request, reply) {
-    const {search, order} = request.query;
-    const paginatedTickets = getTickets();
-    reply.code(200).send(paginatedTickets);
-  })
-
-
-server.get<{
   Headers: SessionHeadParams,
   Reply: {
-    200: User,
+    200: PubUser,
     404: Message
   }
 }>(
@@ -101,7 +80,7 @@ server.get<{
   {
     schema: {
       response: {
-        200: UserSchema,
+        200: UserPubSchema,
         400: MessageSchema
       },
       headers: SessionHeadSchema
@@ -109,7 +88,7 @@ server.get<{
   },
   async function (request, reply) {
     const {session_id} = request.headers;
-    const user = await getUser(this.mongo.db, session_id);
+    const user = await get_user(this.mongo.db, session_id);
     if (user) {
       reply.code(200).send(user);
     } else {

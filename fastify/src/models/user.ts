@@ -8,4 +8,12 @@ export const UserSchema = Type.Object({
   _id: Type.String(),
 })
 
+export const UserPubSchema = Type.Object({
+  username: Type.String(),
+  createdAt: Type.String(),
+  updatedAt: Type.String(),
+  _id: Type.String(),
+})
+
 export type User = Static<typeof UserSchema>
+export type PubUser = Static<typeof UserPubSchema>
