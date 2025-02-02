@@ -69,5 +69,3 @@ export async function getUser(db: Db, session_id: string) {
     _id: new ObjectId(user_id)
   });
 }
-
-
