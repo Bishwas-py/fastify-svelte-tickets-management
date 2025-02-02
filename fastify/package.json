@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "../node_modules/.bin/tsc -p tsconfig.json",
     "start": "node build/index.js",
-    "dev": "../node_modules/.bin/tsc -w & node build/index.js"
+    "dev": "ts-node -T src/index.ts"
   },
   "private": true,
   "dependencies": {
@@ -19,6 +19,7 @@
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
     "@types/node": "^22.12.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
   }
 }

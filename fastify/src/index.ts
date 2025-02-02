@@ -5,10 +5,12 @@ import {
   PaginatedTicket, PaginatedTicketSchema
 } from "./models/ticket-resp";
 import {getTickets} from "./helpers/get-tickets";
-import {SignUpParams, SignUpSchema} from "./models/signup";
+import {SessionHeadParams, SessionHeadSchema, SignUpParams, SignUpSchema} from "./models/signup";
 import {Message, MessageSchema, Session, SessionSchema} from "./models/resp";
 import type {Db, MongoClient} from 'mongodb'
-import {getAuthorizeUser, createUser, hasUserDb, createSession} from "./helpers/auth";
+import {getAuthorizeUser, createUser, hasUserDb, createSession, getUser} from "./helpers/auth";
+import {User, UserSchema} from "./models/user";
+import * as repl from "node:repl";
 
 const server = fastify();
 
@@ -32,43 +34,12 @@ server.register(require('@fastify/mongodb'), {
 
 server.post<{
   Body: SignUpParams,
-  Reply: Message
-}>(
-  '/signup',
-  {
-    schema: {
-      body: SignUpSchema,
-      response: {
-        201: MessageSchema,
-        400: MessageSchema
-      }
-    },
-  },
-  async function (request, reply) {
-    const {username, password} = request.body;
-    if (await hasUserDb(this.mongo.db, username)) {
-      reply.code(400).send({
-        message: "User exists!",
-        type_: "fail"
-      });
-    }
-    await createUser(this.mongo.db, username, password);
-    reply.code(201).send({
-      message: "User created!",
-      type_: "success"
-    });
-  }
-)
-
-
-server.post<{
-  Body: SignUpParams,
   Reply: {
     201: Session,
     400: Message
   }
 }>(
-  '/signin',
+  '/signup',
   {
     schema: {
       body: SignUpSchema,
@@ -80,19 +51,24 @@ server.post<{
   },
   async function (request, reply) {
     const {username, password} = request.body;
-    const user = await getAuthorizeUser(this.mongo.db, username, password);
-    if (!user) {
-      reply.code(400).send({
-        message: "Do not match!",
-        type_: "fail"
-      });
-      return;
+    let user_id: string;
+    if (await hasUserDb(this.mongo.db, username)) {
+      const user = await getAuthorizeUser(this.mongo.db, username, password);
+      if (!user) {
+        reply.code(400).send({
+          message: "Do not match!",
+          type_: "fail"
+        });
+        return;
+      }
+      user_id = user._id.toString();
+    } else {
+      user_id = (await createUser(this.mongo.db, username, password)).insertedId.toString();
     }
-    const session = await createSession(this.mongo.db, user._id);
+    const session = await createSession(this.mongo.db, user_id);
     reply.code(201).send(session);
   }
 )
-
 
 server.get<{
   Querystring: TicketQuerystring,
@@ -109,9 +85,39 @@ server.get<{
   },
   function (request, reply) {
     const {search, order} = request.query;
-    console.log({search, order})
     const paginatedTickets = getTickets();
     reply.code(200).send(paginatedTickets);
+  })
+
+
+server.get<{
+  Headers: SessionHeadParams,
+  Reply: {
+    200: User,
+    404: Message
+  }
+}>(
+  '/get-user',
+  {
+    schema: {
+      response: {
+        200: UserSchema,
+        400: MessageSchema
+      },
+      headers: SessionHeadSchema
+    }
+  },
+  async function (request, reply) {
+    const {session_id} = request.headers;
+    const user = await getUser(this.mongo.db, session_id);
+    if (user) {
+      reply.code(200).send(user);
+    } else {
+      reply.code(404).send({
+        message: 'User not found',
+        type_: 'fail'
+      })
+    }
   })
 
 

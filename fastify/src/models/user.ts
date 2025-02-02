@@ -3,8 +3,8 @@ import {Static, Type} from '@sinclair/typebox'
 export const UserSchema = Type.Object({
   username: Type.String(),
   password: Type.String(),
-  createAt: Type.Date(),
-  updateAt: Type.Date(),
+  createdAt: Type.String(),
+  updatedAt: Type.String(),
   _id: Type.String(),
 })
 
